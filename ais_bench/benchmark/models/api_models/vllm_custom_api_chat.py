@@ -29,6 +29,9 @@ class VLLMCustomAPIChat(BaseAPIModel):
         max_out_len (int, optional): Maximum output length, controlling the maximum number of tokens for generated text. Defaults to 4096.
         retry (int, optional): Number of retry attempts when request fails. Defaults to 2.
         api_key (str, optional): API key for the API service. Defaults to empty string.
+        auth_header (str, optional): Custom auth header name. Defaults to "Authorization",
+            which produces "Authorization: Bearer <api_key>". When set to a different value
+            (e.g. "X-Auth-Token"), the header becomes "<auth_header>: <api_key>".
         host_ip (str, optional): Host IP address of the API service. Defaults to "localhost".
         host_port (int, optional): Port number of the API service. Defaults to 8080.
         url (str, optional): Complete URL address of the API service. Defaults to empty string.
@@ -50,6 +53,7 @@ class VLLMCustomAPIChat(BaseAPIModel):
         max_out_len: int = 4096,
         retry: int = 2,
         api_key: str = "",
+        auth_header: str = "Authorization",
         host_ip: str = "localhost",
         host_port: int = 8080,
         url: str = "",
@@ -73,9 +77,16 @@ class VLLMCustomAPIChat(BaseAPIModel):
             enable_ssl=enable_ssl,
             verbose=verbose,
         )
+        # fallback to env var if api_key not set in config
+        if not api_key:
+            import os
+            api_key = os.environ.get("AIS_BENCH_API_KEY", "")
         if api_key:
-            self.headers["Authorization"] = f"Bearer {api_key}"
-            self.logger.info("API key is set")
+            if auth_header == "Authorization":
+                self.headers[auth_header] = f"Bearer {api_key}"
+            else:
+                self.headers[auth_header] = api_key
+            self.logger.info(f"API key is set via {auth_header} header")
         self.meta_template = (
             dict(
                 round=[
@@ -93,8 +104,12 @@ class VLLMCustomAPIChat(BaseAPIModel):
         self.session = None
 
     def _get_url(self) -> str:
+        # If url already looks like a complete endpoint, use it directly
+        if self.url and self.url.rstrip("/").endswith("completions"):
+            return self.base_url
         endpoint = "v1/chat/completions"
-        url = urllib.parse.urljoin(self.base_url, endpoint)
+        base = self.base_url.rstrip("/") + "/"
+        url = urllib.parse.urljoin(base, endpoint)
         self.logger.debug(f"Request url: {url}")
         return url
 

@@ -13,15 +13,16 @@ models = [
         use_timestamp=False,
         retry=2,
         api_key="",
+        auth_header="X-Auth-Token",
         host_ip="localhost",
         host_port=8080,
         url="",
         max_out_len=512,
-        batch_size=1,
+        batch_size=3,
         trust_remote_code=False,
         generation_kwargs=dict(
             temperature=0.01,
-            ignore_eos=False,
+            ignore_eos=True,
         ),
         pred_postprocessor=dict(type=extract_non_reasoning_content),
     )

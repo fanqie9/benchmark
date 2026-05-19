@@ -162,7 +162,7 @@ class BaseApiInferencer(BaseInferencer):
             else contextlib.nullcontext()
         )
         session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(limit=concurrency + 1),
+            connector=aiohttp.TCPConnector(limit=concurrency + 1, ssl=False),
             timeout=aiohttp.ClientTimeout(total=get_request_time_out()),
             max_line_size=get_max_chunk_size(),
         )
@@ -408,7 +408,7 @@ class BaseApiInferencer(BaseInferencer):
         # Limit maximum concurrency
         semaphore = asyncio.Semaphore(num_workers) if num_workers and not self.use_timestamp else None
         # Reuse session to improve concurrency
-        connector = aiohttp.TCPConnector(limit=num_workers + 1)
+        connector = aiohttp.TCPConnector(limit=num_workers + 1, ssl=False)
         timeout = aiohttp.ClientTimeout(total=get_request_time_out())
         session = aiohttp.ClientSession(
             connector=connector, timeout=timeout, max_line_size=get_max_chunk_size()

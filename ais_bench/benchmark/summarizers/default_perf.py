@@ -118,7 +118,14 @@ class DefaultPerfSummarizer:
             model_cfg: Model configuration
             perf_datas: Raw performance data
         """
-        tokenizer = AISTokenizer(model_cfg.get("path"), model_cfg.get("trust_remote_code", False))
+        tokenizer = None
+        # Lazy-load tokenizer only when needed (API responses may already include token counts)
+        def _get_tokenizer():
+            nonlocal tokenizer
+            if tokenizer is None:
+                tokenizer = AISTokenizer(model_cfg.get("path"), model_cfg.get("trust_remote_code", False))
+            return tokenizer
+
         conn = init_db(db_file_path)
         all_numpy_data = load_all_numpy_from_db(conn)
 
@@ -154,10 +161,10 @@ class DefaultPerfSummarizer:
             if is_mm_prompt(perf_data["input"]):
                 perf_data["input_tokens"] = 0  # multi-modal input does not support input_tokens
             elif "input_tokens" not in perf_data or perf_data.get("input_tokens") is None:
-                perf_data["input_tokens"] = len(tokenizer.encode(perf_data["input"])) # input_tokens is not provided, calculate it
+                perf_data["input_tokens"] = len(_get_tokenizer().encode(perf_data["input"])) # input_tokens is not provided, calculate it
 
             if "output_tokens" not in perf_data or perf_data.get("output_tokens") is None:
-                perf_data["output_tokens"] = len(tokenizer.encode(perf_data["prediction"]))
+                perf_data["output_tokens"] = len(_get_tokenizer().encode(perf_data["prediction"]))
             perf_data.pop("input")
             perf_data.pop("prediction")
             perf_data.pop("db_name")
@@ -255,8 +262,10 @@ class DefaultPerfSummarizer:
 
         details_perf_datas = defaultdict(list)
 
-        # check tokenizer
-        load_tokenizer(tokenizer_path=model_cfg.get("path"), trust_remote_code=model_cfg.get("trust_remote_code", False))
+        # check tokenizer (skip if no path configured, e.g. for API-only models)
+        tokenizer_path = model_cfg.get("path", "")
+        if tokenizer_path:
+            load_tokenizer(tokenizer_path=tokenizer_path, trust_remote_code=model_cfg.get("trust_remote_code", False))
 
         with multiprocessing.Manager() as manager:
             manager_list = manager.list()

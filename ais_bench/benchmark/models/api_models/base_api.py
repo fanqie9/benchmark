@@ -10,6 +10,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import requests
 import aiohttp
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from ais_bench.benchmark.utils.logging.logger import AISLogger
 from ais_bench.benchmark.utils.logging.error_codes import MODEL_CODES
@@ -131,7 +133,7 @@ class BaseAPIModel(BaseModel):
         try:
             url = osp.join(self.base_url, "v1/models")
             headers = self.headers
-            response = requests.get(url, headers=headers, timeout=5)
+            response = requests.get(url, headers=headers, timeout=5, verify=False)
 
             if response.status_code == 200:
                 data = response.json()
@@ -215,6 +217,7 @@ class BaseAPIModel(BaseModel):
     ):
         if not session:
             self.session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(ssl=False),
                 trust_env=True, timeout=AIOHTTP_TIMEOUT
             )
             close_session = True
@@ -287,7 +290,7 @@ class BaseAPIModel(BaseModel):
                     await self.parse_stream_response(data, output)
                 output.success = True
             else:
-                output.error_info = response.reason
+                output.error_info = f"HTTP {response.status}: {response.reason or 'Unknown error'}"
                 output.success = False
 
     async def text_infer(self, request_body, output: Output):
@@ -310,7 +313,7 @@ class BaseAPIModel(BaseModel):
                 await self.parse_text_response(data, output)
                 output.success = True
             else:
-                output.error_info = response.reason
+                output.error_info = f"HTTP {response.status}: {response.reason or 'Unknown error'}"
                 output.success = False
 
     async def get_ppl(self,
@@ -334,7 +337,10 @@ class BaseAPIModel(BaseModel):
             • Respect session lifecycle: only close if they created it.
         """
         if session is None:
-            self.session = aiohttp.ClientSession(trust_env=True, timeout=AIOHTTP_TIMEOUT)
+            self.session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(ssl=False),
+                trust_env=True, timeout=AIOHTTP_TIMEOUT
+            )
             close_session = True
         else:
             self.session = session
@@ -361,7 +367,7 @@ class BaseAPIModel(BaseModel):
                         output.success = True
                         break
                     else:
-                        output.error_info = response.reason
+                        output.error_info = f"HTTP {response.status}: {response.reason or 'Unknown error'}"
                         output.success = False
                         continue
             except asyncio.exceptions.CancelledError as e:

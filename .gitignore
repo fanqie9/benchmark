@@ -6,3 +6,6 @@ test_reports
 .venv
 .eggs
 ais_bench_benchmark.egg-info
+perf_benchmark_fix_summary.md
+outputs/
+3rd-llm-deploment/
